@@ -61,12 +61,50 @@
     padding:12px 24px;border-radius:22px;margin:16px 0 0;text-align:center;
     max-width:620px;box-shadow:0 4px 0 rgba(0,0,0,.1);
   }
-  #play{
+  .overlay button{
     font-family:inherit;font-size:clamp(26px,7vw,46px);font-weight:900;color:#fff;
     background:linear-gradient(180deg,#ffb703,#f77f00);border:none;border-radius:999px;
     padding:18px 62px;box-shadow:0 9px 0 #c05a00;cursor:pointer;letter-spacing:2px;
   }
-  #play:active{transform:translateY(6px);box-shadow:0 3px 0 #c05a00;}
+  .overlay button:active{transform:translateY(6px);box-shadow:0 3px 0 #c05a00;}
+
+  /* Tela de vitória: fundo mais opaco pra parecer "fim de jogo" */
+  #victory{
+    background:rgba(30,20,60,.55);
+    backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+  }
+  #victory h1{
+    text-shadow:0 6px 0 #e07a00, 0 0 40px rgba(255,220,80,.8);
+    animation:pulse 1.4s ease-in-out infinite alternate;
+  }
+  @keyframes pulse{
+    from{transform:scale(1);}
+    to  {transform:scale(1.06);}
+  }
+  #victory .emoji{
+    font-size:clamp(48px,14vw,110px);
+    line-height:1;
+    margin-bottom:6px;
+    filter:drop-shadow(0 6px 0 rgba(0,0,0,.2));
+  }
+  #victoryTotalPill{
+    background:#fff5d6;
+    color:#b85c00;
+    font-size:clamp(22px,6vw,40px);
+    padding:14px 34px;
+    border-radius:999px;
+    margin-top:18px;
+    box-shadow:0 6px 0 rgba(0,0,0,.18);
+    font-weight:900;
+  }
+  #victoryRoundText{
+    font-size:clamp(14px,3.8vw,22px);
+    color:#ffeaa7;
+    margin-top:14px;
+    text-shadow:0 2px 0 rgba(0,0,0,.35);
+    font-weight:800;
+  }
 </style>
 </head>
 <body>
@@ -82,6 +120,7 @@
 
 <div id="banner"><span id="bannerText">FASE 2!</span></div>
 
+<!-- MENU -->
 <div id="menu" class="overlay">
   <div class="top" style="text-align:center">
     <h1>Ache o Tatu!</h1>
@@ -90,58 +129,45 @@
   <button id="play">▶ JOGAR</button>
 </div>
 
+<!-- VITÓRIA -->
+<div id="victory" class="overlay hide">
+  <div style="text-align:center">
+    <div class="emoji">🎉🏆🎉</div>
+    <h1>PARABÉNS!</h1>
+    <p>Você completou todas as 12 fases!</p>
+    <div id="victoryTotalPill">⭐ <span id="victoryTotal">0</span> pontos</div>
+    <div id="victoryRoundText">Volta 1 concluída!</div>
+  </div>
+  <button id="playAgain">▶ Volta 2</button>
+</div>
+
 <script>
 (function(){
 'use strict';
 
 /* ============================================================
-   TEMAS (a cada fase o jogo troca de cenário)
+   TEMAS
    ============================================================ */
 const THEMES = [
-  { // 0 — Dia
-    sky:['#7ec8f2','#d3efff'],
-    ground:['#c08a52','#a9743f','#7a4e27'],
-    grass:'#6dbb4e', grass2:'#5aa93e',
-    sun:'#ffe066', sunGlow:'rgba(255,240,150,.45)',
-    cloud:'rgba(255,255,255,.92)'
-  },
-  { // 1 — Entardecer
-    sky:['#ff9e7d','#ffd9a0'],
-    ground:['#a9714a','#8a5730','#5c3a1e'],
-    grass:'#7c9c4a', grass2:'#688238',
-    sun:'#ffb347', sunGlow:'rgba(255,180,80,.55)',
-    cloud:'rgba(255,220,200,.9)'
-  },
-  { // 2 — Noite
-    sky:['#1b2a5a','#4a5c9e'],
-    ground:['#3d3458','#2c2540','#1a1530'],
-    grass:'#4a5a7a', grass2:'#3b4a66',
-    sun:'#f0f0e0', sunGlow:'rgba(240,240,220,.30)',
-    cloud:'rgba(200,210,240,.30)',
-    moon:true, stars:true
-  },
-  { // 3 — Deserto
-    sky:['#ffd89b','#ffb56b'],
-    ground:['#e0b876','#c9974f','#a67a3c'],
-    grass:'#d4a860', grass2:'#c09550',
-    sun:'#fff3b0', sunGlow:'rgba(255,230,150,.6)',
-    cloud:'rgba(255,255,255,.5)'
-  },
-  { // 4 — Neve
-    sky:['#b8d8f0','#e8f4ff'],
-    ground:['#e8eef5','#c8d6e5','#a0b4cc'],
-    grass:'#f0f6ff', grass2:'#dce8f5',
-    sun:'#fff8d0', sunGlow:'rgba(255,255,220,.5)',
-    cloud:'rgba(255,255,255,.95)',
-    snow:true
-  },
-  { // 5 — Floresta
-    sky:['#6fb8a0','#c8e8d8'],
-    ground:['#6a8a4a','#4f6b34','#354a24'],
-    grass:'#5a9a3e', grass2:'#457a2e',
-    sun:'#f5f5c0', sunGlow:'rgba(240,240,150,.4)',
-    cloud:'rgba(255,255,255,.85)'
-  }
+  { sky:['#7ec8f2','#d3efff'], ground:['#c08a52','#a9743f','#7a4e27'],
+    grass:'#6dbb4e', grass2:'#5aa93e', sun:'#ffe066',
+    sunGlow:'rgba(255,240,150,.45)', cloud:'rgba(255,255,255,.92)' },
+  { sky:['#ff9e7d','#ffd9a0'], ground:['#a9714a','#8a5730','#5c3a1e'],
+    grass:'#7c9c4a', grass2:'#688238', sun:'#ffb347',
+    sunGlow:'rgba(255,180,80,.55)', cloud:'rgba(255,220,200,.9)' },
+  { sky:['#1b2a5a','#4a5c9e'], ground:['#3d3458','#2c2540','#1a1530'],
+    grass:'#4a5a7a', grass2:'#3b4a66', sun:'#f0f0e0',
+    sunGlow:'rgba(240,240,220,.30)', cloud:'rgba(200,210,240,.30)',
+    moon:true, stars:true },
+  { sky:['#ffd89b','#ffb56b'], ground:['#e0b876','#c9974f','#a67a3c'],
+    grass:'#d4a860', grass2:'#c09550', sun:'#fff3b0',
+    sunGlow:'rgba(255,230,150,.6)', cloud:'rgba(255,255,255,.5)' },
+  { sky:['#b8d8f0','#e8f4ff'], ground:['#e8eef5','#c8d6e5','#a0b4cc'],
+    grass:'#f0f6ff', grass2:'#dce8f5', sun:'#fff8d0',
+    sunGlow:'rgba(255,255,220,.5)', cloud:'rgba(255,255,255,.95)', snow:true },
+  { sky:['#6fb8a0','#c8e8d8'], ground:['#6a8a4a','#4f6b34','#354a24'],
+    grass:'#5a9a3e', grass2:'#457a2e', sun:'#f5f5c0',
+    sunGlow:'rgba(240,240,150,.4)', cloud:'rgba(255,255,255,.85)' }
 ];
 
 /* ============================================================
@@ -150,29 +176,44 @@ const THEMES = [
 const canvas = document.getElementById('game');
 const ctx    = canvas.getContext('2d');
 
-const ptsEl      = document.getElementById('pts');
-const lvlEl      = document.getElementById('lvl');
-const menuEl     = document.getElementById('menu');
-const bannerEl   = document.getElementById('banner');
-const bannerText = document.getElementById('bannerText');
-const soundBtn   = document.getElementById('sound');
+const ptsEl       = document.getElementById('pts');
+const lvlEl       = document.getElementById('lvl');
+const menuEl      = document.getElementById('menu');
+const victoryEl   = document.getElementById('victory');
+const victoryTot  = document.getElementById('victoryTotal');
+const victoryRd   = document.getElementById('victoryRoundText');
+const playAgainEl = document.getElementById('playAgain');
+const bannerEl    = document.getElementById('banner');
+const bannerText  = document.getElementById('bannerText');
+const soundBtn    = document.getElementById('sound');
 
 let W = 0, H = 0, DPR = 1, unit = 1, groundTop = 0;
 let holes = [];
 let bannerTimer = null;
 
+const VICTORY_SCORE = 60;   // 12 fases × 5 pontos
+
 /* ============================================================
    ESTADO DO JOGO
    ============================================================ */
 const G = {
-  state: 'menu',
+  state: 'menu',         // menu | wait | rising | up | down | victory
   activeIdx: -1,
   lastIdx: -1,
   flip: 1,
   rise: 0,
   timer: 0,
   t: 0,
+
+  /* score desta volta (usado para calcular a fase) */
   score: 0,
+
+  /* ⭐ placar total — nunca zera entre voltas */
+  totalScore: 0,
+
+  /* contador de voltas */
+  round: 1,
+
   level: 1,
   parts: [],
   floats: [],
@@ -181,10 +222,10 @@ const G = {
   blinkNext: 2,
   menuBob: 0,
   themeIdx: 0,
-  pendingLayout: false   // muda os buracos quando o tatu terminar de se esconder
+  pendingLayout: false,
+  victory: false
 };
 
-/* estrelas e neve */
 const stars = [];
 const snowFlakes = [];
 
@@ -232,6 +273,13 @@ function sndLevel(){
   tone(784, 0.52, 0.32, 'sine', 0.20);
 }
 function sndMiss(){ tone(180, 0, 0.09, 'sine', 0.07, 120); }
+function sndVictory(){
+  tone(523, 0.00, 0.18, 'triangle', 0.22);
+  tone(659, 0.14, 0.18, 'triangle', 0.22);
+  tone(784, 0.28, 0.18, 'triangle', 0.22);
+  tone(1046,0.42, 0.40, 'triangle', 0.25);
+  tone(1319,0.60, 0.55, 'triangle', 0.22);
+}
 
 /* ============================================================
    RESIZE
@@ -251,8 +299,6 @@ function resize(){
 
 /* ============================================================
    LAYOUT DOS BURACOS
-   randomize=true → novas posições aleatórias (mudança de fase)
-   randomize=false → recalcula posições a partir de fx/rt/rf
    ============================================================ */
 function layout(randomize){
   groundTop = Math.round(H * 0.46);
@@ -262,9 +308,9 @@ function layout(randomize){
   unit = Math.max(0.42, Math.min(unit, 1.6));
 
   const rowDefs = [
-    { t: 0.12, n: 3, f: 0.78 },   // linha de cima
-    { t: 0.42, n: 4, f: 0.94 },   // linha do meio (mais cheia)
-    { t: 0.76, n: 3, f: 1.10 }    // linha de baixo (maior)
+    { t: 0.12, n: 3, f: 0.78 },
+    { t: 0.42, n: 4, f: 0.94 },
+    { t: 0.76, n: 3, f: 1.10 }
   ];
 
   if(randomize || holes.length === 0){
@@ -276,21 +322,15 @@ function layout(randomize){
 
       for(let i = 0; i < d.n; i++){
         const base   = margin + step * (i + 0.5);
-        const jitter = (Math.random() - 0.5) * step * 0.55;  // bagunça ordenada
+        const jitter = (Math.random() - 0.5) * step * 0.55;
         let fx = base + jitter;
         fx = Math.max(margin, Math.min(1 - margin, fx));
 
-        holes.push({
-          fx: fx,
-          rt: d.t,
-          rf: d.f,
-          x: 0, y: 0, s: 1
-        });
+        holes.push({ fx: fx, rt: d.t, rf: d.f, x: 0, y: 0, s: 1 });
       }
     }
   }
 
-  /* recalcula posições absolutas (funciona também no resize) */
   for(const h of holes){
     h.x = W * h.fx;
     h.y = groundTop + band * h.rt;
@@ -307,12 +347,11 @@ function downDur(){ return Math.max(0.14, 0.35 - (G.level - 1) * 0.015); }
 function waitDur(){ return Math.max(0.12, 0.55 - (G.level - 1) * 0.040); }
 
 /* ============================================================
-   ESTRELAS E NEVE
+   ESTRELAS / NEVE
    ============================================================ */
 function initStars(){
   stars.length = 0;
-  const n = 60;
-  for(let i = 0; i < n; i++){
+  for(let i = 0; i < 60; i++){
     stars.push({
       x: Math.random(),
       y: Math.random() * 0.36,
@@ -324,8 +363,7 @@ function initStars(){
 
 function initSnow(){
   snowFlakes.length = 0;
-  const n = 70;
-  for(let i = 0; i < n; i++){
+  for(let i = 0; i < 70; i++){
     snowFlakes.push({
       x: Math.random() * W,
       y: Math.random() * H,
@@ -345,22 +383,25 @@ function startGame(){
   G.lastIdx = -1;
   G.rise = 0;
   G.timer = 0.55;
-  G.score = 0;
+  G.score = 0;              /* placar da volta zera */
+  /* G.totalScore e G.round NÃO são tocados aqui */
   G.level = 1;
   G.parts.length = 0;
   G.floats.length = 0;
   G.hitPulse = 0;
   G.themeIdx = 0;
   G.pendingLayout = false;
+  G.victory = false;
   snowFlakes.length = 0;
-  layout(true);          // posições novas ao iniciar
-  ptsEl.textContent = '0';
+  layout(true);
+
+  ptsEl.textContent = G.totalScore;    /* HUD mostra TOTAL */
   lvlEl.textContent = '1';
   menuEl.classList.add('hide');
+  victoryEl.classList.add('hide');
 }
 
 function nextLevel(){
-  /* sorteia um tema diferente do atual */
   let t = G.themeIdx;
   let guard = 0;
   do {
@@ -369,17 +410,14 @@ function nextLevel(){
   } while(t === G.themeIdx && THEMES.length > 1 && guard < 20);
   G.themeIdx = t;
 
-  /* efeitos do tema */
   if(THEMES[t].snow) initSnow();
   else snowFlakes.length = 0;
 
-  /* marca para embaralhar os buracos quando o tatu esconder */
   G.pendingLayout = true;
 }
 
 function appear(){
-  let idx;
-  let guard = 0;
+  let idx, guard = 0;
   do {
     idx = Math.floor(Math.random() * holes.length);
     guard++;
@@ -398,12 +436,19 @@ function appear(){
 
 function hitArmadillo(hx, hy, h){
   G.score++;
+  G.totalScore++;
   G.hitPulse = 0.4;
-  ptsEl.textContent = G.score;
+  ptsEl.textContent = G.totalScore;    /* HUD: total acumulado */
 
   spawnStars(hx, hy);
   G.floats.push({ x: hx, y: hy - 24, life: 0.95, max: 0.95, text: '+1' });
   sndHit();
+
+  /* 🏆 Vitória? */
+  if(G.score >= VICTORY_SCORE){
+    triggerVictory();
+    return;
+  }
 
   const newLevel = Math.min(12, 1 + Math.floor(G.score / 5));
   if(newLevel > G.level){
@@ -411,10 +456,29 @@ function hitArmadillo(hx, hy, h){
     lvlEl.textContent = newLevel;
     showBanner(newLevel);
     sndLevel();
-    nextLevel();          // ← troca tema e agenda embaralhar buracos
+    nextLevel();
   }
 
   G.state = 'down';
+}
+
+function triggerVictory(){
+  G.victory = true;
+  G.state   = 'down';    /* deixa o tatu entrar na terra antes */
+
+  /* prepara a tela de vitória */
+  victoryTot.textContent = G.totalScore;
+  victoryRd.textContent  = 'Volta ' + G.round + ' concluída!';
+  playAgainEl.textContent = '▶ Volta ' + (G.round + 1);
+
+  sndVictory();
+
+  /* depois do tatu se esconder, mostra a tela */
+  setTimeout(function(){
+    if(!G.victory) return;
+    G.state = 'victory';
+    victoryEl.classList.remove('hide');
+  }, 1100);
 }
 
 function showBanner(level){
@@ -432,12 +496,9 @@ function spawnDirt(x, y, n){
     const a  = -Math.PI / 2 + (Math.random() - 0.5) * 2.4;
     const sp = 70 + Math.random() * 140;
     G.parts.push({
-      x: x, y: y,
-      vx: Math.cos(a) * sp,
-      vy: Math.sin(a) * sp,
-      g: 620,
-      life: 0.55 + Math.random() * 0.25,
-      max: 0.8,
+      x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      g: 620, life: 0.55 + Math.random() * 0.25, max: 0.8,
       r: 3 + Math.random() * 4,
       c: Math.random() < 0.5 ? '#8a5730' : '#a9743f'
     });
@@ -449,12 +510,9 @@ function spawnDust(x, y){
     const a  = Math.random() * Math.PI * 2;
     const sp = 30 + Math.random() * 70;
     G.parts.push({
-      x: x, y: y,
-      vx: Math.cos(a) * sp,
-      vy: Math.sin(a) * sp - 20,
-      g: 300,
-      life: 0.35,
-      max: 0.35,
+      x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 20,
+      g: 300, life: 0.35, max: 0.35,
       r: 4 + Math.random() * 4,
       c: 'rgba(200,180,150,0.9)'
     });
@@ -467,16 +525,12 @@ function spawnStars(x, y){
     const a  = Math.random() * Math.PI * 2;
     const sp = 90 + Math.random() * 200;
     G.parts.push({
-      x: x, y: y,
-      vx: Math.cos(a) * sp,
-      vy: Math.sin(a) * sp - 90,
-      g: 300,
-      life: 0.85,
-      max: 0.85,
+      x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 90,
+      g: 300, life: 0.85, max: 0.85,
       r: 6 + Math.random() * 7,
       c: cores[i % cores.length],
-      star: true,
-      rot: Math.random() * 6
+      star: true, rot: Math.random() * 6
     });
   }
 }
@@ -513,17 +567,23 @@ function update(dt){
       G.rise -= dt / downDur();
       if(G.rise <= 0){
         G.rise = 0;
-        G.state = 'wait';
-        G.timer = waitDur();
         G.activeIdx = -1;
 
-        /* ✅ agora sim: tatu escondido → embaralha buracos da nova fase */
-        if(G.pendingLayout){
-          G.pendingLayout = false;
-          layout(true);
+        if(G.victory){
+          /* espera o setTimeout da vitória abrir a tela */
+        } else {
+          G.state = 'wait';
+          G.timer = waitDur();
+          if(G.pendingLayout){
+            G.pendingLayout = false;
+            layout(true);
+          }
         }
       }
       break;
+
+    case 'victory': break;
+    case 'menu':    break;
   }
 
   /* partículas */
@@ -538,7 +598,6 @@ function update(dt){
     if(p.rot !== undefined) p.rot += dt * 6;
   }
 
-  /* flutuantes */
   for(let i = G.floats.length - 1; i >= 0; i--){
     const f = G.floats[i];
     f.life -= dt;
@@ -546,7 +605,6 @@ function update(dt){
     if(f.life <= 0) G.floats.splice(i, 1);
   }
 
-  /* neve */
   if(THEMES[G.themeIdx].snow && snowFlakes.length === 0 && G.state !== 'menu'){
     initSnow();
   }
@@ -581,7 +639,7 @@ function drawStarPath(cx, cy, R, r, n){
 }
 
 /* ============================================================
-   CENÁRIO (usa o tema atual)
+   CENÁRIO
    ============================================================ */
 function cloud(x, y, r, color){
   ctx.fillStyle = color;
@@ -596,14 +654,12 @@ function cloud(x, y, r, color){
 function drawBackground(){
   const th = THEMES[G.themeIdx];
 
-  /* céu */
   const sky = ctx.createLinearGradient(0, 0, 0, groundTop + 12);
   sky.addColorStop(0, th.sky[0]);
   sky.addColorStop(1, th.sky[1]);
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, groundTop + 12);
 
-  /* estrelas */
   if(th.stars){
     for(const s of stars){
       const a = 0.55 + Math.sin(G.t * 1.6 + s.tw) * 0.45;
@@ -616,25 +672,21 @@ function drawBackground(){
     ctx.globalAlpha = 1;
   }
 
-  /* sol / lua */
   ctx.fillStyle = th.sunGlow;
   ctx.beginPath(); ctx.arc(W * 0.85, H * 0.10, 72 * unit, 0, 7); ctx.fill();
   ctx.fillStyle = th.sun;
   ctx.beginPath(); ctx.arc(W * 0.85, H * 0.10, 46 * unit, 0, 7); ctx.fill();
   if(th.moon){
-    /* recorte pra virar meia-lua */
     ctx.fillStyle = th.sky[0];
     ctx.beginPath();
     ctx.arc(W * 0.85 + 20 * unit, H * 0.10 - 8 * unit, 40 * unit, 0, 7);
     ctx.fill();
   }
 
-  /* nuvens */
   cloud(W * 0.16, H * 0.13, 30 * unit, th.cloud);
   cloud(W * 0.52, H * 0.07, 22 * unit, th.cloud);
   cloud(W * 0.72, H * 0.22, 16 * unit, th.cloud);
 
-  /* terra */
   const gnd = ctx.createLinearGradient(0, groundTop, 0, H);
   gnd.addColorStop(0,    th.ground[0]);
   gnd.addColorStop(0.35, th.ground[1]);
@@ -642,7 +694,6 @@ function drawBackground(){
   ctx.fillStyle = gnd;
   ctx.fillRect(0, groundTop, W, H - groundTop);
 
-  /* grama / camada superior */
   ctx.fillStyle = th.grass;
   ctx.fillRect(0, groundTop, W, 16 * unit);
   for(let x = 0; x < W + 30 * unit; x += 26 * unit){
@@ -651,7 +702,6 @@ function drawBackground(){
     ctx.fill();
   }
 
-  /* tufinhos */
   ctx.fillStyle = th.grass2;
   for(let x = 10 * unit; x < W; x += 60 * unit){
     ctx.beginPath();
@@ -697,7 +747,7 @@ function drawHole(h, front){
    TATU
    ============================================================ */
 function drawTatu(){
-  const happy = G.hitPulse > 0;
+  const happy = G.hitPulse > 0 || G.victory;
 
   ctx.fillStyle = '#d8a86f';
   ell(-38, -10, 17, 11);
@@ -768,7 +818,7 @@ function drawTatu(){
 
 function drawArmadillo(cx, baseY, s, rise, flip){
   const HMAX = 115;
-  const yy = baseY + (1 - rise) * HMAX * s;   /* rise=0 → escondido; rise=1 → fora */
+  const yy = baseY + (1 - rise) * HMAX * s;
   ctx.save();
   ctx.translate(cx, yy);
   ctx.scale(s * flip, s);
@@ -831,13 +881,11 @@ function render(){
   const activeIdx = G.activeIdx;
   const active    = (activeIdx >= 0) ? holes[activeIdx] : null;
 
-  /* 1) todos os buracos, menos o ativo */
   for(let i = 0; i < holes.length; i++){
     if(i === activeIdx) continue;
     drawHole(holes[i], false);
   }
 
-  /* 2) buraco ativo + tatu saindo de dentro da terra */
   if(active){
     drawHole(active, false);
 
@@ -853,7 +901,7 @@ function render(){
     drawHole(active, true);
   }
 
-  /* tatu do menu */
+  /* tatu decorativo do menu */
   if(G.state === 'menu'){
     const s = unit * 1.7;
     const bob = Math.sin(G.menuBob * 2.2) * 6;
@@ -891,7 +939,7 @@ function loop(now){
 function handleTap(x, y){
   audioInit();
 
-  if(G.state === 'menu') return;
+  if(G.state === 'menu' || G.state === 'victory') return;
 
   if(G.activeIdx >= 0 && (G.state === 'up' || G.state === 'rising')){
     const h  = holes[G.activeIdx];
@@ -924,6 +972,18 @@ canvas.addEventListener('pointerdown', function(e){
 document.getElementById('play').addEventListener('click', function(e){
   e.preventDefault();
   audioInit();
+  /* primeira partida — total e volta começam em 0 / 1 */
+  G.totalScore = 0;
+  G.round      = 1;
+  startGame();
+});
+
+playAgainEl.addEventListener('click', function(e){
+  e.preventDefault();
+  audioInit();
+  /* mantém totalScore; só avança a volta */
+  G.round++;
+  victoryEl.classList.add('hide');
   startGame();
 });
 
