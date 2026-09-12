@@ -245,6 +245,7 @@ function startGame(){
 }
 
 function appear(){
+  /* escolhe um buraco DIFERENTE do anterior */
   let idx;
   let guard = 0;
   do {
@@ -256,9 +257,10 @@ function appear(){
   G.activeIdx = idx;
   G.flip      = Math.random() < 0.5 ? -1 : 1;
   G.rise      = 0;
-  G.state     = 'rising';
+  G.state     = 'rising';   /* começa SUBINDO de dentro da terra */
 
   const h = holes[idx];
+  /* poeirinha de terra saindo do buraco quando o tatu começa a subir */
   spawnDirt(h.x, h.y - 4 * h.s, 8);
   sndRise();
 }
@@ -280,7 +282,7 @@ function hitArmadillo(hx, hy, h){
     sndLevel();
   }
 
-  G.state = 'down';
+  G.state = 'down';   /* acertou → tatu volta pra terra */
 }
 
 function showBanner(level){
@@ -367,7 +369,7 @@ function update(dt){
       if(G.timer <= 0) appear();
       break;
 
-    case 'rising':
+    case 'rising':                  /* subindo de dentro da terra */
       G.rise += dt / riseDur();
       if(G.rise >= 1){ G.rise = 1; G.state = 'up'; G.timer = upDur(); }
       break;
@@ -377,7 +379,7 @@ function update(dt){
       if(G.timer <= 0){ G.state = 'down'; sndDown(); }
       break;
 
-    case 'down':
+    case 'down':                    /* voltando pra dentro da terra */
       G.rise -= dt / downDur();
       if(G.rise <= 0){
         G.rise = 0;
@@ -607,9 +609,14 @@ function drawTatu(){
   }
 }
 
+/* ============================================================
+   ✅ CORREÇÃO PRINCIPAL:
+   rise = 0  → tatu ABAIXO do buraco (escondido na terra)
+   rise = 1  → tatu FORA do buraco (cabeça pra fora)
+   ============================================================ */
 function drawArmadillo(cx, baseY, s, rise, flip){
   const HMAX = 115;
-  const yy = baseY - (1 - rise) * HMAX * s;
+  const yy = baseY + (1 - rise) * HMAX * s;   /* ← sinal trocado: agora SOBE */
   ctx.save();
   ctx.translate(cx, yy);
   ctx.scale(s * flip, s);
@@ -667,11 +674,13 @@ function render(){
     drawHole(h, false);
   }
 
-  /* buraco ativo + tatu */
+  /* buraco ativo + tatu subindo de dentro da terra */
   if(active){
     drawHole(active, false);
 
     if(G.rise > 0.001){
+      /* Clip: só desenha o tatu ACIMA da linha do buraco.
+         A parte de baixo fica escondida "dentro da terra". */
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, W, active.y - 3 * active.s);
@@ -680,6 +689,7 @@ function render(){
       ctx.restore();
     }
 
+    /* borda da frente cobre a base do tatu */
     drawHole(active, true);
   }
 
@@ -689,7 +699,7 @@ function render(){
     drawHole(h, false);
   }
 
-  /* tatu do menu */
+  /* tatu decorativo do menu */
   if(G.state === 'menu'){
     const s = unit * 1.7;
     const bob = Math.sin(G.menuBob * 2.2) * 6;
@@ -731,7 +741,8 @@ function handleTap(x, y){
   if(G.activeIdx >= 0 && (G.state === 'up' || G.state === 'rising')){
     const h  = holes[G.activeIdx];
     const hx = h.x + 58 * h.s * G.flip;
-    const hy = h.y - (1 - G.rise) * 115 * h.s - 48 * h.s;
+    /* ✅ CORREÇÃO: mesma fórmula do desenho */
+    const hy = h.y + (1 - G.rise) * 115 * h.s - 48 * h.s;
     const R  = Math.max(75, 95 * h.s);
 
     const dx = x - hx;
