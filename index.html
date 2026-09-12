@@ -115,7 +115,7 @@ let bannerTimer = null;
    ESTADO DO JOGO
    ============================================================ */
 const G = {
-  state: 'menu',          // menu | wait | rising | up | down
+  state: 'menu',
   activeIdx: -1,
   lastIdx: -1,
   flip: 1,
@@ -133,7 +133,7 @@ const G = {
 };
 
 /* ============================================================
-   ÁUDIO (Web Audio simples e suave)
+   ÁUDIO
    ============================================================ */
 let actx = null;
 let muted = false;
@@ -178,7 +178,7 @@ function sndLevel(){
 function sndMiss(){ tone(180, 0, 0.09, 'sine', 0.07, 120); }
 
 /* ============================================================
-   RESIZE / LAYOUT DOS BURACOS
+   RESIZE / LAYOUT
    ============================================================ */
 function resize(){
   DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -218,7 +218,7 @@ function layout(){
 }
 
 /* ============================================================
-   TEMPOS (ficam mais rápidos a cada fase)
+   TEMPOS
    ============================================================ */
 function riseDur(){ return Math.max(0.16, 0.42 - (G.level - 1) * 0.020); }
 function upDur(){   return Math.max(0.85, 2.60 - (G.level - 1) * 0.160); }
@@ -245,7 +245,6 @@ function startGame(){
 }
 
 function appear(){
-  /* escolhe um buraco DIFERENTE do anterior */
   let idx;
   let guard = 0;
   do {
@@ -257,10 +256,9 @@ function appear(){
   G.activeIdx = idx;
   G.flip      = Math.random() < 0.5 ? -1 : 1;
   G.rise      = 0;
-  G.state     = 'rising';   /* começa SUBINDO de dentro da terra */
+  G.state     = 'rising';
 
   const h = holes[idx];
-  /* poeirinha de terra saindo do buraco quando o tatu começa a subir */
   spawnDirt(h.x, h.y - 4 * h.s, 8);
   sndRise();
 }
@@ -282,7 +280,7 @@ function hitArmadillo(hx, hy, h){
     sndLevel();
   }
 
-  G.state = 'down';   /* acertou → tatu volta pra terra */
+  G.state = 'down';
 }
 
 function showBanner(level){
@@ -355,21 +353,19 @@ function spawnStars(x, y){
 function update(dt){
   G.t += dt;
 
-  /* piscar */
   G.blinkNext -= dt;
   if(G.blinkNext <= 0){ G.blink = 0.12; G.blinkNext = 1.8 + Math.random() * 3; }
   if(G.blink > 0) G.blink -= dt;
   if(G.hitPulse > 0) G.hitPulse -= dt;
   G.menuBob += dt;
 
-  /* máquina de estados */
   switch(G.state){
     case 'wait':
       G.timer -= dt;
       if(G.timer <= 0) appear();
       break;
 
-    case 'rising':                  /* subindo de dentro da terra */
+    case 'rising':
       G.rise += dt / riseDur();
       if(G.rise >= 1){ G.rise = 1; G.state = 'up'; G.timer = upDur(); }
       break;
@@ -379,7 +375,7 @@ function update(dt){
       if(G.timer <= 0){ G.state = 'down'; sndDown(); }
       break;
 
-    case 'down':                    /* voltando pra dentro da terra */
+    case 'down':
       G.rise -= dt / downDur();
       if(G.rise <= 0){
         G.rise = 0;
@@ -390,7 +386,6 @@ function update(dt){
       break;
   }
 
-  /* partículas */
   for(let i = G.parts.length - 1; i >= 0; i--){
     const p = G.parts[i];
     p.life -= dt;
@@ -402,7 +397,6 @@ function update(dt){
     if(p.rot !== undefined) p.rot += dt * 6;
   }
 
-  /* textos flutuantes */
   for(let i = G.floats.length - 1; i >= 0; i--){
     const f = G.floats[i];
     f.life -= dt;
@@ -446,25 +440,21 @@ function cloud(x, y, r){
 }
 
 function drawBackground(){
-  /* céu */
   const sky = ctx.createLinearGradient(0, 0, 0, groundTop + 12);
   sky.addColorStop(0, '#7ec8f2');
   sky.addColorStop(1, '#d3efff');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, groundTop + 12);
 
-  /* sol */
   ctx.fillStyle = 'rgba(255,240,150,.45)';
   ctx.beginPath(); ctx.arc(W * 0.85, H * 0.10, 72 * unit, 0, 7); ctx.fill();
   ctx.fillStyle = '#ffe066';
   ctx.beginPath(); ctx.arc(W * 0.85, H * 0.10, 46 * unit, 0, 7); ctx.fill();
 
-  /* nuvens */
   cloud(W * 0.16, H * 0.13, 30 * unit);
   cloud(W * 0.52, H * 0.07, 22 * unit);
   cloud(W * 0.72, H * 0.22, 16 * unit);
 
-  /* terra */
   const gnd = ctx.createLinearGradient(0, groundTop, 0, H);
   gnd.addColorStop(0,    '#c08a52');
   gnd.addColorStop(0.35, '#a9743f');
@@ -472,7 +462,6 @@ function drawBackground(){
   ctx.fillStyle = gnd;
   ctx.fillRect(0, groundTop, W, H - groundTop);
 
-  /* grama */
   ctx.fillStyle = '#6dbb4e';
   ctx.fillRect(0, groundTop, W, 16 * unit);
   for(let x = 0; x < W + 30 * unit; x += 26 * unit){
@@ -481,7 +470,6 @@ function drawBackground(){
     ctx.fill();
   }
 
-  /* tufinhos */
   ctx.fillStyle = '#5aa93e';
   for(let x = 10 * unit; x < W; x += 60 * unit){
     ctx.beginPath();
@@ -502,19 +490,16 @@ function drawHole(h, front){
   ctx.scale(s, s);
 
   if(!front){
-    /* montinho de terra */
     ctx.fillStyle = '#9a6437';
     ctx.beginPath(); ctx.ellipse(0, 0, 70, 26, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#8a5730';
     ctx.beginPath(); ctx.ellipse(0, 5, 66, 22, 0, 0, Math.PI * 2); ctx.fill();
 
-    /* buraco escuro */
     ctx.fillStyle = '#4a2c14';
     ctx.beginPath(); ctx.ellipse(0, -2, 46, 17, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#2b1809';
     ctx.beginPath(); ctx.ellipse(0, -1, 36, 12, 0, 0, Math.PI * 2); ctx.fill();
   } else {
-    /* borda da frente (cobre a base do tatu) */
     ctx.fillStyle = '#8a5730';
     ctx.beginPath(); ctx.ellipse(0, 5, 66, 22, 0, 0, Math.PI); ctx.fill();
     ctx.fillStyle = '#4a2c14';
@@ -532,24 +517,20 @@ function drawHole(h, front){
 function drawTatu(){
   const happy = G.hitPulse > 0;
 
-  /* patinhas */
   ctx.fillStyle = '#d8a86f';
   ell(-38, -10, 17, 11);
   ell( 30, -10, 17, 11);
 
-  /* rabinho */
   ctx.fillStyle = '#c08a52';
   ctx.beginPath();
   ctx.ellipse(-70, -26, 18, 11, -0.35, 0, Math.PI * 2);
   ctx.fill();
 
-  /* casco */
   ctx.fillStyle = '#b07a45';
   ell(0, -52, 62, 48);
   ctx.fillStyle = '#c99259';
   ell(-4, -58, 52, 38);
 
-  /* listras do casco */
   ctx.strokeStyle = '#8f5f30';
   ctx.lineWidth = 5;
   ctx.lineCap = 'round';
@@ -563,27 +544,21 @@ function drawTatu(){
     ctx.stroke();
   }
 
-  /* orelhinha */
   ctx.fillStyle = '#d9ab7e';
   ell(40, -74, 11, 11);
 
-  /* cabeça */
   ctx.fillStyle = '#e9c39a';
   ell(58, -48, 32, 30);
 
-  /* focinho */
   ctx.fillStyle = '#eecfa8';
   ell(92, -42, 24, 16);
 
-  /* narizinho */
   ctx.fillStyle = '#4a2f1c';
   ell(108, -46, 8, 7);
 
-  /* bochecha corada */
   ctx.fillStyle = 'rgba(255,120,120,.35)';
   ell(48, -34, 11, 8);
 
-  /* olho */
   if(happy){
     ctx.strokeStyle = '#2a1a0e';
     ctx.lineWidth = 5;
@@ -609,14 +584,11 @@ function drawTatu(){
   }
 }
 
-/* ============================================================
-   ✅ CORREÇÃO PRINCIPAL:
-   rise = 0  → tatu ABAIXO do buraco (escondido na terra)
-   rise = 1  → tatu FORA do buraco (cabeça pra fora)
-   ============================================================ */
+/* rise = 0 → escondido na terra (abaixo do buraco)
+   rise = 1 → fora do buraco  */
 function drawArmadillo(cx, baseY, s, rise, flip){
   const HMAX = 115;
-  const yy = baseY + (1 - rise) * HMAX * s;   /* ← sinal trocado: agora SOBE */
+  const yy = baseY + (1 - rise) * HMAX * s;
   ctx.save();
   ctx.translate(cx, yy);
   ctx.scale(s * flip, s);
@@ -661,26 +633,26 @@ function drawFloats(){
 }
 
 /* ============================================================
-   RENDER PRINCIPAL
+   RENDER PRINCIPAL — ✅ CORRIGIDO
+   Todos os buracos são desenhados sempre.
    ============================================================ */
 function render(){
   drawBackground();
 
-  const active = (G.activeIdx >= 0) ? holes[G.activeIdx] : null;
+  const activeIdx = G.activeIdx;
+  const active    = (activeIdx >= 0) ? holes[activeIdx] : null;
 
-  /* buracos do fundo */
-  for(const h of holes){
-    if(active && h.y >= active.y) continue;
-    drawHole(h, false);
+  /* 1) Desenha TODOS os buracos, exceto o ativo */
+  for(let i = 0; i < holes.length; i++){
+    if(i === activeIdx) continue;
+    drawHole(holes[i], false);
   }
 
-  /* buraco ativo + tatu subindo de dentro da terra */
+  /* 2) Buraco ativo + tatu saindo de dentro da terra */
   if(active){
     drawHole(active, false);
 
     if(G.rise > 0.001){
-      /* Clip: só desenha o tatu ACIMA da linha do buraco.
-         A parte de baixo fica escondida "dentro da terra". */
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, W, active.y - 3 * active.s);
@@ -693,13 +665,7 @@ function render(){
     drawHole(active, true);
   }
 
-  /* buracos da frente */
-  for(const h of holes){
-    if(active && h.y <= active.y) continue;
-    drawHole(h, false);
-  }
-
-  /* tatu decorativo do menu */
+  /* tatu do menu */
   if(G.state === 'menu'){
     const s = unit * 1.7;
     const bob = Math.sin(G.menuBob * 2.2) * 6;
@@ -741,7 +707,6 @@ function handleTap(x, y){
   if(G.activeIdx >= 0 && (G.state === 'up' || G.state === 'rising')){
     const h  = holes[G.activeIdx];
     const hx = h.x + 58 * h.s * G.flip;
-    /* ✅ CORREÇÃO: mesma fórmula do desenho */
     const hy = h.y + (1 - G.rise) * 115 * h.s - 48 * h.s;
     const R  = Math.max(75, 95 * h.s);
 
@@ -754,7 +719,6 @@ function handleTap(x, y){
     }
   }
 
-  /* errou — só uma nuvenzinha de poeira, sem punição */
   spawnDust(x, y);
   sndMiss();
 }
