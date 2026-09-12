@@ -95,6 +95,56 @@
 'use strict';
 
 /* ============================================================
+   TEMAS (a cada fase o jogo troca de cenário)
+   ============================================================ */
+const THEMES = [
+  { // 0 — Dia
+    sky:['#7ec8f2','#d3efff'],
+    ground:['#c08a52','#a9743f','#7a4e27'],
+    grass:'#6dbb4e', grass2:'#5aa93e',
+    sun:'#ffe066', sunGlow:'rgba(255,240,150,.45)',
+    cloud:'rgba(255,255,255,.92)'
+  },
+  { // 1 — Entardecer
+    sky:['#ff9e7d','#ffd9a0'],
+    ground:['#a9714a','#8a5730','#5c3a1e'],
+    grass:'#7c9c4a', grass2:'#688238',
+    sun:'#ffb347', sunGlow:'rgba(255,180,80,.55)',
+    cloud:'rgba(255,220,200,.9)'
+  },
+  { // 2 — Noite
+    sky:['#1b2a5a','#4a5c9e'],
+    ground:['#3d3458','#2c2540','#1a1530'],
+    grass:'#4a5a7a', grass2:'#3b4a66',
+    sun:'#f0f0e0', sunGlow:'rgba(240,240,220,.30)',
+    cloud:'rgba(200,210,240,.30)',
+    moon:true, stars:true
+  },
+  { // 3 — Deserto
+    sky:['#ffd89b','#ffb56b'],
+    ground:['#e0b876','#c9974f','#a67a3c'],
+    grass:'#d4a860', grass2:'#c09550',
+    sun:'#fff3b0', sunGlow:'rgba(255,230,150,.6)',
+    cloud:'rgba(255,255,255,.5)'
+  },
+  { // 4 — Neve
+    sky:['#b8d8f0','#e8f4ff'],
+    ground:['#e8eef5','#c8d6e5','#a0b4cc'],
+    grass:'#f0f6ff', grass2:'#dce8f5',
+    sun:'#fff8d0', sunGlow:'rgba(255,255,220,.5)',
+    cloud:'rgba(255,255,255,.95)',
+    snow:true
+  },
+  { // 5 — Floresta
+    sky:['#6fb8a0','#c8e8d8'],
+    ground:['#6a8a4a','#4f6b34','#354a24'],
+    grass:'#5a9a3e', grass2:'#457a2e',
+    sun:'#f5f5c0', sunGlow:'rgba(240,240,150,.4)',
+    cloud:'rgba(255,255,255,.85)'
+  }
+];
+
+/* ============================================================
    CANVAS / LAYOUT
    ============================================================ */
 const canvas = document.getElementById('game');
@@ -129,8 +179,14 @@ const G = {
   hitPulse: 0,
   blink: 0,
   blinkNext: 2,
-  menuBob: 0
+  menuBob: 0,
+  themeIdx: 0,
+  pendingLayout: false   // muda os buracos quando o tatu terminar de se esconder
 };
+
+/* estrelas e neve */
+const stars = [];
+const snowFlakes = [];
 
 /* ============================================================
    ÁUDIO
@@ -178,7 +234,7 @@ function sndLevel(){
 function sndMiss(){ tone(180, 0, 0.09, 'sine', 0.07, 120); }
 
 /* ============================================================
-   RESIZE / LAYOUT
+   RESIZE
    ============================================================ */
 function resize(){
   DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -189,31 +245,56 @@ function resize(){
   canvas.style.width  = W + 'px';
   canvas.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  layout();
+  layout(false);
+  initStars();
 }
 
-function layout(){
+/* ============================================================
+   LAYOUT DOS BURACOS
+   randomize=true → novas posições aleatórias (mudança de fase)
+   randomize=false → recalcula posições a partir de fx/rt/rf
+   ============================================================ */
+function layout(randomize){
   groundTop = Math.round(H * 0.46);
   const band = H - groundTop;
 
   unit = Math.min(W / 720, H / 720);
   unit = Math.max(0.42, Math.min(unit, 1.6));
 
-  const defs = [
-    { t: 0.12, xs: [0.18, 0.50, 0.82],        f: 0.78 },
-    { t: 0.42, xs: [0.10, 0.36, 0.64, 0.90],  f: 0.94 },
-    { t: 0.76, xs: [0.22, 0.55, 0.80],        f: 1.10 }
+  const rowDefs = [
+    { t: 0.12, n: 3, f: 0.78 },   // linha de cima
+    { t: 0.42, n: 4, f: 0.94 },   // linha do meio (mais cheia)
+    { t: 0.76, n: 3, f: 1.10 }    // linha de baixo (maior)
   ];
 
-  holes = [];
-  for(const d of defs){
-    for(const fx of d.xs){
-      holes.push({
-        x: W * fx,
-        y: groundTop + band * d.t,
-        s: unit * d.f
-      });
+  if(randomize || holes.length === 0){
+    holes = [];
+    for(const d of rowDefs){
+      const margin = 0.09;
+      const usable = 1 - margin * 2;
+      const step   = usable / d.n;
+
+      for(let i = 0; i < d.n; i++){
+        const base   = margin + step * (i + 0.5);
+        const jitter = (Math.random() - 0.5) * step * 0.55;  // bagunça ordenada
+        let fx = base + jitter;
+        fx = Math.max(margin, Math.min(1 - margin, fx));
+
+        holes.push({
+          fx: fx,
+          rt: d.t,
+          rf: d.f,
+          x: 0, y: 0, s: 1
+        });
+      }
     }
+  }
+
+  /* recalcula posições absolutas (funciona também no resize) */
+  for(const h of holes){
+    h.x = W * h.fx;
+    h.y = groundTop + band * h.rt;
+    h.s = unit * h.rf;
   }
 }
 
@@ -224,6 +305,36 @@ function riseDur(){ return Math.max(0.16, 0.42 - (G.level - 1) * 0.020); }
 function upDur(){   return Math.max(0.85, 2.60 - (G.level - 1) * 0.160); }
 function downDur(){ return Math.max(0.14, 0.35 - (G.level - 1) * 0.015); }
 function waitDur(){ return Math.max(0.12, 0.55 - (G.level - 1) * 0.040); }
+
+/* ============================================================
+   ESTRELAS E NEVE
+   ============================================================ */
+function initStars(){
+  stars.length = 0;
+  const n = 60;
+  for(let i = 0; i < n; i++){
+    stars.push({
+      x: Math.random(),
+      y: Math.random() * 0.36,
+      r: 1 + Math.random() * 1.8,
+      tw: Math.random() * 6.28
+    });
+  }
+}
+
+function initSnow(){
+  snowFlakes.length = 0;
+  const n = 70;
+  for(let i = 0; i < n; i++){
+    snowFlakes.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: 1.5 + Math.random() * 3,
+      vy: 25 + Math.random() * 45,
+      wob: Math.random() * 6.28
+    });
+  }
+}
 
 /* ============================================================
    LÓGICA
@@ -239,9 +350,31 @@ function startGame(){
   G.parts.length = 0;
   G.floats.length = 0;
   G.hitPulse = 0;
+  G.themeIdx = 0;
+  G.pendingLayout = false;
+  snowFlakes.length = 0;
+  layout(true);          // posições novas ao iniciar
   ptsEl.textContent = '0';
   lvlEl.textContent = '1';
   menuEl.classList.add('hide');
+}
+
+function nextLevel(){
+  /* sorteia um tema diferente do atual */
+  let t = G.themeIdx;
+  let guard = 0;
+  do {
+    t = Math.floor(Math.random() * THEMES.length);
+    guard++;
+  } while(t === G.themeIdx && THEMES.length > 1 && guard < 20);
+  G.themeIdx = t;
+
+  /* efeitos do tema */
+  if(THEMES[t].snow) initSnow();
+  else snowFlakes.length = 0;
+
+  /* marca para embaralhar os buracos quando o tatu esconder */
+  G.pendingLayout = true;
 }
 
 function appear(){
@@ -278,6 +411,7 @@ function hitArmadillo(hx, hy, h){
     lvlEl.textContent = newLevel;
     showBanner(newLevel);
     sndLevel();
+    nextLevel();          // ← troca tema e agenda embaralhar buracos
   }
 
   G.state = 'down';
@@ -382,10 +516,17 @@ function update(dt){
         G.state = 'wait';
         G.timer = waitDur();
         G.activeIdx = -1;
+
+        /* ✅ agora sim: tatu escondido → embaralha buracos da nova fase */
+        if(G.pendingLayout){
+          G.pendingLayout = false;
+          layout(true);
+        }
       }
       break;
   }
 
+  /* partículas */
   for(let i = G.parts.length - 1; i >= 0; i--){
     const p = G.parts[i];
     p.life -= dt;
@@ -397,16 +538,29 @@ function update(dt){
     if(p.rot !== undefined) p.rot += dt * 6;
   }
 
+  /* flutuantes */
   for(let i = G.floats.length - 1; i >= 0; i--){
     const f = G.floats[i];
     f.life -= dt;
     f.y -= 70 * dt;
     if(f.life <= 0) G.floats.splice(i, 1);
   }
+
+  /* neve */
+  if(THEMES[G.themeIdx].snow && snowFlakes.length === 0 && G.state !== 'menu'){
+    initSnow();
+  }
+  for(const f of snowFlakes){
+    f.y += f.vy * dt;
+    f.x += Math.sin(G.t * 0.9 + f.wob) * 22 * dt;
+    if(f.y > H + 10){ f.y = -10; f.x = Math.random() * W; }
+    if(f.x < -10) f.x = W + 10;
+    if(f.x > W + 10) f.x = -10;
+  }
 }
 
 /* ============================================================
-   DESENHO — HELPERS
+   HELPERS DE DESENHO
    ============================================================ */
 function ell(x, y, rx, ry, rot){
   ctx.beginPath();
@@ -427,10 +581,10 @@ function drawStarPath(cx, cy, R, r, n){
 }
 
 /* ============================================================
-   DESENHO — CENÁRIO
+   CENÁRIO (usa o tema atual)
    ============================================================ */
-function cloud(x, y, r){
-  ctx.fillStyle = 'rgba(255,255,255,.92)';
+function cloud(x, y, r, color){
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(x,             y,             r * 1.00, 0, 7);
   ctx.arc(x + r * 0.92,  y + r * 0.16,  r * 0.74, 0, 7);
@@ -440,29 +594,56 @@ function cloud(x, y, r){
 }
 
 function drawBackground(){
+  const th = THEMES[G.themeIdx];
+
+  /* céu */
   const sky = ctx.createLinearGradient(0, 0, 0, groundTop + 12);
-  sky.addColorStop(0, '#7ec8f2');
-  sky.addColorStop(1, '#d3efff');
+  sky.addColorStop(0, th.sky[0]);
+  sky.addColorStop(1, th.sky[1]);
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, groundTop + 12);
 
-  ctx.fillStyle = 'rgba(255,240,150,.45)';
+  /* estrelas */
+  if(th.stars){
+    for(const s of stars){
+      const a = 0.55 + Math.sin(G.t * 1.6 + s.tw) * 0.45;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * groundTop, s.r, 0, 7);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* sol / lua */
+  ctx.fillStyle = th.sunGlow;
   ctx.beginPath(); ctx.arc(W * 0.85, H * 0.10, 72 * unit, 0, 7); ctx.fill();
-  ctx.fillStyle = '#ffe066';
+  ctx.fillStyle = th.sun;
   ctx.beginPath(); ctx.arc(W * 0.85, H * 0.10, 46 * unit, 0, 7); ctx.fill();
+  if(th.moon){
+    /* recorte pra virar meia-lua */
+    ctx.fillStyle = th.sky[0];
+    ctx.beginPath();
+    ctx.arc(W * 0.85 + 20 * unit, H * 0.10 - 8 * unit, 40 * unit, 0, 7);
+    ctx.fill();
+  }
 
-  cloud(W * 0.16, H * 0.13, 30 * unit);
-  cloud(W * 0.52, H * 0.07, 22 * unit);
-  cloud(W * 0.72, H * 0.22, 16 * unit);
+  /* nuvens */
+  cloud(W * 0.16, H * 0.13, 30 * unit, th.cloud);
+  cloud(W * 0.52, H * 0.07, 22 * unit, th.cloud);
+  cloud(W * 0.72, H * 0.22, 16 * unit, th.cloud);
 
+  /* terra */
   const gnd = ctx.createLinearGradient(0, groundTop, 0, H);
-  gnd.addColorStop(0,    '#c08a52');
-  gnd.addColorStop(0.35, '#a9743f');
-  gnd.addColorStop(1,    '#7a4e27');
+  gnd.addColorStop(0,    th.ground[0]);
+  gnd.addColorStop(0.35, th.ground[1]);
+  gnd.addColorStop(1,    th.ground[2]);
   ctx.fillStyle = gnd;
   ctx.fillRect(0, groundTop, W, H - groundTop);
 
-  ctx.fillStyle = '#6dbb4e';
+  /* grama / camada superior */
+  ctx.fillStyle = th.grass;
   ctx.fillRect(0, groundTop, W, 16 * unit);
   for(let x = 0; x < W + 30 * unit; x += 26 * unit){
     ctx.beginPath();
@@ -470,7 +651,8 @@ function drawBackground(){
     ctx.fill();
   }
 
-  ctx.fillStyle = '#5aa93e';
+  /* tufinhos */
+  ctx.fillStyle = th.grass2;
   for(let x = 10 * unit; x < W; x += 60 * unit){
     ctx.beginPath();
     ctx.moveTo(x,                groundTop + 16 * unit);
@@ -481,7 +663,7 @@ function drawBackground(){
 }
 
 /* ============================================================
-   DESENHO — BURACO
+   BURACO
    ============================================================ */
 function drawHole(h, front){
   const s = h.s;
@@ -512,7 +694,7 @@ function drawHole(h, front){
 }
 
 /* ============================================================
-   DESENHO — TATU
+   TATU
    ============================================================ */
 function drawTatu(){
   const happy = G.hitPulse > 0;
@@ -584,11 +766,9 @@ function drawTatu(){
   }
 }
 
-/* rise = 0 → escondido na terra (abaixo do buraco)
-   rise = 1 → fora do buraco  */
 function drawArmadillo(cx, baseY, s, rise, flip){
   const HMAX = 115;
-  const yy = baseY + (1 - rise) * HMAX * s;
+  const yy = baseY + (1 - rise) * HMAX * s;   /* rise=0 → escondido; rise=1 → fora */
   ctx.save();
   ctx.translate(cx, yy);
   ctx.scale(s * flip, s);
@@ -597,7 +777,7 @@ function drawArmadillo(cx, baseY, s, rise, flip){
 }
 
 /* ============================================================
-   DESENHO — PARTÍCULAS / TEXTOS
+   PARTÍCULAS / TEXTOS
    ============================================================ */
 function drawParticles(){
   for(const p of G.parts){
@@ -632,9 +812,18 @@ function drawFloats(){
   ctx.globalAlpha = 1;
 }
 
+function drawSnow(){
+  if(!THEMES[G.themeIdx].snow) return;
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  for(const f of snowFlakes){
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, f.r, 0, 7);
+    ctx.fill();
+  }
+}
+
 /* ============================================================
-   RENDER PRINCIPAL — ✅ CORRIGIDO
-   Todos os buracos são desenhados sempre.
+   RENDER
    ============================================================ */
 function render(){
   drawBackground();
@@ -642,13 +831,13 @@ function render(){
   const activeIdx = G.activeIdx;
   const active    = (activeIdx >= 0) ? holes[activeIdx] : null;
 
-  /* 1) Desenha TODOS os buracos, exceto o ativo */
+  /* 1) todos os buracos, menos o ativo */
   for(let i = 0; i < holes.length; i++){
     if(i === activeIdx) continue;
     drawHole(holes[i], false);
   }
 
-  /* 2) Buraco ativo + tatu saindo de dentro da terra */
+  /* 2) buraco ativo + tatu saindo de dentro da terra */
   if(active){
     drawHole(active, false);
 
@@ -661,7 +850,6 @@ function render(){
       ctx.restore();
     }
 
-    /* borda da frente cobre a base do tatu */
     drawHole(active, true);
   }
 
@@ -677,6 +865,7 @@ function render(){
   }
 
   drawParticles();
+  drawSnow();
   drawFloats();
 }
 
